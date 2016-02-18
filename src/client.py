@@ -8,9 +8,13 @@
 import json as _json
 
 import requests as _requests
-import urlparse as _urlparse
 import random as _random
 import base64 as _base64
+
+try:
+    from urllib.parse import urlparse as _urlparse  # py3
+except ImportError:
+    from urlparse import urlparse as _urlparse  # py2
 
 _CT = 'content-type'
 _AJ = 'application/json'
@@ -22,8 +26,8 @@ def _get_token(user_id, password,
                         'grant_type=client_credentials'):
     # This is bandaid helper function until we get a full
     # KBase python auth client released
-    auth = _base64.encodestring(user_id + ':' + password)
-    headers = {'Authorization': 'Basic ' + auth}
+    auth = _base64.b64encode((user_id + ':' + password).encode('utf-8'))
+    headers = {'Authorization': 'Basic ' + auth.decode('utf-8')}
     ret = _requests.get(auth_svc, headers=headers, allow_redirects=True)
     status = ret.status_code
     if status >= 200 and status <= 299:
@@ -67,7 +71,7 @@ class Workspace(object):
                  trust_all_ssl_certificates=False):
         if url is None:
             url = 'https://kbase.us/services/ws/'
-        scheme, _, _, _, _, _ = _urlparse.urlparse(url)
+        scheme, _, _, _, _, _ = _urlparse(url)
         if scheme not in _URL_SCHEME:
             raise ValueError(url + " isn't a valid http url")
         self.url = url
