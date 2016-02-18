@@ -5,19 +5,12 @@
 #
 ############################################################
 
-try:
-    import json as _json
-except ImportError:
-    import sys
-    sys.path.append('simplejson-2.3.3')
-    import simplejson as _json
+import json as _json
 
 import requests as _requests
 import urlparse as _urlparse
 import random as _random
 import base64 as _base64
-from ConfigParser import ConfigParser as _ConfigParser
-import os as _os
 
 _CT = 'content-type'
 _AJ = 'application/json'
@@ -41,42 +34,6 @@ def _get_token(user_id, password,
     else:
         raise Exception(ret.text)
     return tok['access_token']
-
-
-def _read_rcfile(file=_os.environ['HOME'] + '/.authrc'):  # @ReservedAssignment
-    # Another bandaid to read in the ~/.authrc file if one is present
-    authdata = None
-    if _os.path.exists(file):
-        try:
-            with open(file) as authrc:
-                rawdata = _json.load(authrc)
-                # strip down whatever we read to only what is legit
-                authdata = {x: rawdata.get(x) for x in (
-                    'user_id', 'token', 'client_secret', 'keyfile',
-                    'keyfile_passphrase', 'password')}
-        except Exception, e:
-            print "Error while reading authrc file %s: %s" % (file, e)
-    return authdata
-
-
-def _read_inifile(file=_os.environ.get(  # @ReservedAssignment
-                  'KB_DEPLOYMENT_CONFIG', _os.environ['HOME'] +
-                  '/.kbase_config')):
-    # Another bandaid to read in the ~/.kbase_config file if one is present
-    authdata = None
-    if _os.path.exists(file):
-        try:
-            config = _ConfigParser()
-            config.read(file)
-            # strip down whatever we read to only what is legit
-            authdata = {x: config.get('authentication', x)
-                        if config.has_option('authentication', x)
-                        else None for x in ('user_id', 'token',
-                                            'client_secret', 'keyfile',
-                                            'keyfile_passphrase', 'password')}
-        except Exception, e:
-            print "Error while reading INI file %s: %s" % (file, e)
-    return authdata
 
 
 class ServerError(Exception):
@@ -106,7 +63,7 @@ class _JSONObjectEncoder(_json.JSONEncoder):
 class Workspace(object):
 
     def __init__(self, url=None, timeout=30 * 60, user_id=None,
-                 password=None, token=None, ignore_authrc=False,
+                 password=None, token=None,
                  trust_all_ssl_certificates=False):
         if url is None:
             url = 'https://kbase.us/services/ws/'
@@ -122,19 +79,6 @@ class Workspace(object):
             self._headers['AUTHORIZATION'] = token
         elif user_id is not None and password is not None:
             self._headers['AUTHORIZATION'] = _get_token(user_id, password)
-        elif 'KB_AUTH_TOKEN' in _os.environ:
-            self._headers['AUTHORIZATION'] = _os.environ.get('KB_AUTH_TOKEN')
-        elif not ignore_authrc:
-            authdata = _read_inifile()
-            if authdata is None:
-                authdata = _read_rcfile()
-            if authdata is not None:
-                if authdata.get('token') is not None:
-                    self._headers['AUTHORIZATION'] = authdata['token']
-                elif(authdata.get('user_id') is not None
-                     and authdata.get('password') is not None):
-                    self._headers['AUTHORIZATION'] = _get_token(
-                        authdata['user_id'], authdata['password'])
         if self.timeout < 1:
             raise ValueError('Timeout value must be at least 1 second')
 
